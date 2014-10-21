@@ -46,6 +46,18 @@
 #include "rtl-sdr.h"
 #include "anet.h"
 
+/* For LED Message */
+#include <errno.h>   /* Error number definitions */
+#include <termios.h> /* POSIX terminal control definitions */
+#include <time.h>
+
+#include "serprt.h"
+#include "helper.h"
+#include "common.h"
+
+
+
+#define pi 3.14159265358979323846
 #define MODES_DEFAULT_RATE         2000000
 #define MODES_DEFAULT_FREQ         1090000000
 #define MODES_DEFAULT_WIDTH        1000
@@ -83,6 +95,9 @@
 #define MODES_INTERACTIVE_ROWS 15               /* Rows on screen */
 #define MODES_INTERACTIVE_TTL 60                /* TTL before being removed */
 
+#define MODES_LED_REFRESH_TIME 5000      /* Milliseconds */
+#define LED_MESSAGE_LEN 60
+
 #define MODES_NET_MAX_FD 1024
 #define MODES_NET_OUTPUT_SBS_PORT 30003
 #define MODES_NET_OUTPUT_RAW_PORT 30002
@@ -92,6 +107,7 @@
 #define MODES_NET_SNDBUF_SIZE (1024*64)
 
 #define MODES_NOTUSED(V) ((void) V)
+
 
 /* Structure used to describe a networking client. */
 struct client {
@@ -168,10 +184,17 @@ struct {
     int onlyaddr;                   /* Print only ICAO addresses. */
     int metric;                     /* Use metric units. */
     int aggressive;                 /* Aggressive detection algorithm. */
+    int led;                        /* LED Display Board */
 
     /* Interactive mode */
     struct aircraft *aircrafts;
     long long interactive_last_update;  /* Last screen update in milliseconds */
+
+    /* LED Display */
+    struct aircraft *led_aircraft; /* The aircraft currently being display */
+    int led_field;
+    long long led_last_update;
+    char led_message[LED_MESSAGE_LEN];
 
     /* Statistics */
     long long stat_valid_preamble;
@@ -186,6 +209,8 @@ struct {
     long long stat_out_of_phase;
 } Modes;
 
+
+    
 /* The struct we use to store information about a decoded message. */
 struct modesMessage {
     /* Generic fields */
@@ -254,6 +279,43 @@ static long long mstime(void) {
     return mst;
 }
 
+
+/*:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::*/
+/*::  This function converts decimal degrees to radians             :*/
+/*:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::*/
+double deg2rad(double deg) {
+  return (deg * pi / 180);
+}
+
+/*:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::*/
+/*::  This function converts radians to decimal degrees             :*/
+/*:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::*/
+double rad2deg(double rad) {
+  return (rad * 180 / pi);
+}
+
+double distance(double lat1, double lon1, double lat2, double lon2, char unit) {
+  double theta, dist;
+  theta = lon1 - lon2;
+  dist = sin(deg2rad(lat1)) * sin(deg2rad(lat2)) + cos(deg2rad(lat1)) * cos(deg2rad(lat2)) * cos(deg2rad(theta));
+  dist = acos(dist);
+  dist = rad2deg(dist);
+  dist = dist * 60 * 1.1515;
+  switch(unit) {
+    case 'M':
+      break;
+    case 'K':
+      dist = dist * 1.609344;
+      break;
+    case 'N':
+      dist = dist * 0.8684;
+      break;
+  }
+  return (dist);
+}
+
+
+
 /* =============================== Initialization =========================== */
 
 void modesInitConfig(void) {
@@ -294,6 +356,12 @@ void modesInit(void) {
     memset(Modes.icao_cache,0,sizeof(uint32_t)*MODES_ICAO_CACHE_LEN*2);
     Modes.aircrafts = NULL;
     Modes.interactive_last_update = 0;
+
+    /* setups the variables for the LED board */
+    Modes.led_field = 0;
+    Modes.led_aircraft = NULL;
+    Modes.led_last_update = 0;
+
     if ((Modes.data = malloc(Modes.data_len)) == NULL ||
         (Modes.magnitude = malloc(Modes.data_len*2)) == NULL) {
         fprintf(stderr, "Out of memory allocating data buffer.\n");
@@ -1586,6 +1654,32 @@ struct aircraft *interactiveCreateAircraft(uint32_t addr) {
     return a;
 }
 
+/* Return a new aircraft structure for the interactive mode linked list
+ * of aircrafts. */
+struct aircraft *interactiveCopyAircraft(struct aircraft *b) {
+    struct aircraft *a = malloc(sizeof(*a));
+
+    a->addr = b->addr;
+    snprintf(a->hexaddr,sizeof(a->hexaddr),"%06x",(int)b->addr);
+    strcpy(a->flight , b->flight);
+    a->altitude = b->altitude;
+    a->speed = b->speed;
+    a->track = b->track;
+    a->odd_cprlat = 0;
+    a->odd_cprlon = 0;
+    a->odd_cprtime = 0;
+    a->even_cprlat = 0;
+    a->even_cprlon = 0;
+    a->even_cprtime = 0;
+    a->lat = 0;
+    a->lon = 0;
+    a->seen = time(NULL);
+    a->messages = 0;
+    a->next = NULL;
+    return a;
+}
+
+
 /* Return the aircraft with the specified address, or NULL if no aircraft
  * exists with this address. */
 struct aircraft *interactiveFindAircraft(uint32_t addr) {
@@ -1794,12 +1888,112 @@ struct aircraft *interactiveReceiveData(struct modesMessage *mm) {
     return a;
 }
 
+void ledNextAircraft(void) {
+    struct aircraft *a = NULL;
+    if (Modes.led_aircraft != NULL) {
+        a = interactiveFindAircraft(Modes.led_aircraft->addr);
+        if (a != NULL) {
+            a = a->next;
+        }
+    }
+    Modes.led_field = 0;
+    if (Modes.led_aircraft) {
+        free(Modes.led_aircraft);
+    }
+    Modes.led_aircraft = NULL;
+
+    if (a == NULL ){
+        /* either there wasn't a Modes.led_aircraft, or it got removed, or it was at the end of the list */
+        if (Modes.aircrafts == NULL) {
+            /* There are no aircraft in the list */
+            return;
+        } else {
+            /* Start at the beginning */
+            a = Modes.aircrafts;
+        }
+    }
+    Modes.led_aircraft = interactiveCopyAircraft(a);
+    return;
+}
+
+void ledRotateDisplay(void) {
+    if (!Modes.led_aircraft)  {
+        ledNextAircraft();
+    } else {
+        Modes.led_field++;   
+        if (Modes.led_field > 2) {
+            ledNextAircraft();
+        }
+
+    } 
+    
+}
+
 /* Show the currently captured interactive data on screen. */
-void interactiveShowData(void) {
-    struct aircraft *a = Modes.aircrafts;
+void ledUpdateData(void) {
+    int next_aircraft = 0;
+    char field_str[15];
+
+    
+
+    memset(Modes.led_message, ' ', LED_MESSAGE_LEN - 1);
+    Modes.led_message[LED_MESSAGE_LEN - 1] = '\0';
+
+        if (Modes.led_field > 2) {
+            ledNextAircraft();
+        }
+
+    if (Modes.led_aircraft) {
+
+        if (strlen(Modes.led_aircraft->flight) > 0) {
+            strcpy(Modes.led_message, Modes.led_aircraft->flight);
+        } else {
+            strcpy(Modes.led_message, Modes.led_aircraft->hexaddr);   
+        }
+
+        
+        switch (Modes.led_field) {
+            case 0:
+                if (Modes.led_aircraft->altitude >0) {
+                   strcat(Modes.led_message, " - Alt: ");
+                    sprintf(field_str, "%-9d", Modes.led_aircraft->altitude);
+                   strcat(Modes.led_message, field_str);
+                } else {
+                    Modes.led_field++;
+                    return;
+                }
+            break;
+            case 1:
+                if (Modes.led_aircraft->speed >0) {
+                   strcat(Modes.led_message, " - Spd: ");
+                    sprintf(field_str, "%-7d", Modes.led_aircraft->speed);
+                   strcat(Modes.led_message, field_str);
+                } else {
+                    Modes.led_field++;
+                    return;
+                }
+            break;
+            case 2:
+                if ((Modes.led_aircraft->track >0) && (Modes.led_aircraft->lat >0 )) {
+                    strcat(Modes.led_message, " - Trk: ");
+                    sprintf(field_str, "%-3d", Modes.led_aircraft->track);
+                    strcat(Modes.led_message, field_str);
+                    strcat(Modes.led_message, " Dst: ");
+                    sprintf(field_str, "%-4d", distance(Modes.led_aircraft->lat, Modes.led_aircraft->lon, 38.9232353, -77.04361829999999, 'M'));
+                    strcat(Modes.led_message, field_str);
+                } else {
+                    Modes.led_field++;
+                    return;
+                }
+            break;
+        }
+    } 
+
+
+
     time_t now = time(NULL);
     char progress[4];
-    int count = 0;
+
 
     memset(progress,' ',3);
     progress[time(NULL)%3] = '.';
@@ -1811,6 +2005,27 @@ void interactiveShowData(void) {
 "--------------------------------------------------------------------------------\n",
         progress);
 
+  printf("%s\n",Modes.led_message);
+    
+}
+
+/* Show the currently captured interactive data on screen. */
+void interactiveShowData(void) {
+    struct aircraft *a = Modes.aircrafts;
+    time_t now = time(NULL);
+    char progress[4];
+    int count = 0;
+
+    memset(progress,' ',3);
+    progress[time(NULL)%3] = '.';
+    progress[3] = '\0';
+
+    //printf("\x1b[H\x1b[2J");    /* Clear the screen */
+    /*printf(
+"Hex    Flight   Altitude  Speed   Lat       Lon       Track  Messages Seen %s\n"
+"--------------------------------------------------------------------------------\n",
+        progress);*/
+
     while(a && count < Modes.interactive_rows) {
         int altitude = a->altitude, speed = a->speed;
 
@@ -1820,10 +2035,10 @@ void interactiveShowData(void) {
             speed *= 1.852;
         }
 
-        printf("%-6s %-8s %-9d %-7d %-7.03f   %-7.03f   %-3d   %-9ld %d sec\n",
+        /*printf("%-6s %-8s %-9d %-7d %-7.03f   %-7.03f   %-3d   %-9ld %d sec\n",
             a->hexaddr, a->flight, altitude, speed,
             a->lat, a->lon, a->track, a->messages,
-            (int)(now - a->seen));
+            (int)(now - a->seen));*/
         a = a->next;
         count++;
     }
@@ -2469,7 +2684,15 @@ void backgroundTasks(void) {
     {
         interactiveRemoveStaleAircrafts();
         interactiveShowData();
+        ledUpdateData();
         Modes.interactive_last_update = mstime();
+    }
+    if (Modes.led &&
+        (mstime() - Modes.led_last_update) >
+        MODES_LED_REFRESH_TIME)
+    {
+        ledRotateDisplay();
+        Modes.led_last_update = mstime();
     }
 }
 
@@ -2519,6 +2742,9 @@ int main(int argc, char **argv) {
         } else if (!strcmp(argv[j],"--aggressive")) {
             Modes.aggressive++;
         } else if (!strcmp(argv[j],"--interactive")) {
+            Modes.interactive = 1;
+        } else if (!strcmp(argv[j],"--led")) {
+            Modes.led = 1;
             Modes.interactive = 1;
         } else if (!strcmp(argv[j],"--interactive-rows")) {
             Modes.interactive_rows = atoi(argv[++j]);
