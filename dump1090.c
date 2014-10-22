@@ -350,6 +350,26 @@ void print_word(uint16_t x)
 
 }
 
+// Note: This function returns a pointer to a substring of the original string.
+// If the given string was allocated dynamically, the caller must not overwrite
+// that pointer with the returned value, since the original pointer must be
+// deallocated using the same allocator with which it was allocated.  The return
+// value must NOT be deallocated using free() etc.
+char *trim_whitespace(char *str)
+{
+  char *end;
+ 
+  // Trim trailing space
+  end = str + strlen(str) - 1;
+  while(end > str && isspace(*end)) end--;
+
+  // Write new null terminator
+  *(end+1) = 0;
+
+  return str;
+}
+
+
 /*:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::*/
 /*::  This function converts decimal degrees to radians             :*/
 /*:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::*/
@@ -1502,6 +1522,7 @@ void decodeModesMessage(struct modesMessage *mm, unsigned char *msg) {
             mm->flight[6] = ais_charset[((msg[9]&15)<<2)|(msg[10]>>6)];
             mm->flight[7] = ais_charset[msg[10]&63];
             mm->flight[8] = '\0';
+            trim_whitespace(mm->flight);
         } else if (mm->metype >= 9 && mm->metype <= 18) {
             /* Airborne position Message */
             mm->fflag = msg[6] & (1<<2);
@@ -2332,8 +2353,8 @@ void ledUpdateData(void) {
         switch (Modes.led_field) {
             case 0:
                 if (Modes.led_aircraft->altitude >0) {
-                   strcat(Modes.led_message, " - Alt: ");
-                    sprintf(field_str, "%-9d", Modes.led_aircraft->altitude);
+                   
+                    sprintf(field_str, " %-5d Alt", Modes.led_aircraft->altitude);
                    strcat(Modes.led_message, field_str);
                 } else {
                     Modes.led_field++;
@@ -2342,8 +2363,8 @@ void ledUpdateData(void) {
             break;
             case 1:
                 if (Modes.led_aircraft->speed >0) {
-                   strcat(Modes.led_message, " - Spd: ");
-                    sprintf(field_str, "%-7d", Modes.led_aircraft->speed);
+
+                    sprintf(field_str, " %-3d Spd", Modes.led_aircraft->speed);
                    strcat(Modes.led_message, field_str);
                 } else {
                     Modes.led_field++;
@@ -2352,11 +2373,11 @@ void ledUpdateData(void) {
             break;
             case 2:
                 if ((Modes.led_aircraft->track >0) && (Modes.led_aircraft->lat >0 )) {
-                    strcat(Modes.led_message, " - Trk: ");
+                    /*strcat(Modes.led_message, " - Trk: ");
                     sprintf(field_str, "%-3d", Modes.led_aircraft->track);
                     strcat(Modes.led_message, field_str);
-                    strcat(Modes.led_message, " Dst: ");
-                    sprintf(field_str, "%3.1f", distance(Modes.led_aircraft->lat, Modes.led_aircraft->lon, 38.9232353, -77.04361829999999, 'M'));
+                    strcat(Modes.led_message, " Dst: ");*/
+                    sprintf(field_str, " %3.1f Dst", distance(Modes.led_aircraft->lat, Modes.led_aircraft->lon, 38.9232353, -77.04361829999999, 'M'));
                     strcat(Modes.led_message, field_str);
                 } else {
                     Modes.led_field++;
