@@ -50,7 +50,10 @@
 #include <errno.h>   /* Error number definitions */
 #include <termios.h> /* POSIX terminal control definitions */
 #include <time.h>
-
+#include "wiringPiSPI.h"
+#include "wiringPi.h"
+#include "bit_array.h"
+#include "font.h"
 
 
 
@@ -105,6 +108,33 @@
 #define MODES_NET_SNDBUF_SIZE (1024*64)
 
 #define MODES_NOTUSED(V) ((void) V)
+
+
+/* LED Display */
+#define COMMAND 0x4
+#define RD 0x6
+#define WR 0x5
+#define SYS_DIS 0x00
+#define COMMON_8NMOS 0x20
+#define COMMON_8PMOS 0x28
+#define MASTER_MODE 0x14
+#define INT_RC 0x18
+#define SYS_EN 0x01
+#define LED_ON 0x03
+#define LED_OFF 0x02
+#define PWM_CONTROL 0xA0
+#define BLINK_ON 0x09
+#define BLINK_OFF 0x08
+
+#define for_x for (x = 0; x < w; x++)
+#define for_y for (y = 0; y < h; y++)
+#define for_xy for_x for_y
+
+
+int displays=4;
+int height=8;
+int width=32;
+int font_width=8;
 
 
 /* Structure used to describe a networking client. */
@@ -255,6 +285,10 @@ struct modesMessage {
     int altitude, unit;
 };
 
+/* LED Buffers */
+uint8_t *matrix;
+uint8_t *matrix_buf;
+
 void interactiveShowData(void);
 struct aircraft* interactiveReceiveData(struct modesMessage *mm);
 void modesSendRawOutput(struct modesMessage *mm);
@@ -278,6 +312,43 @@ static long long mstime(void) {
     return mst;
 }
 
+void *reverse_endian(void *p, size_t size) {
+  char *head = (char *)p;
+  char *tail = head + size -1;
+
+  for(; tail > head; --tail, ++head) {
+    char temp = *head;
+    *head = *tail;
+    *tail = temp;
+  }
+  return p;
+}
+
+
+
+void print_byte(uint16_t x) {
+  int n;
+
+  for(n=0; n<8; n++){
+
+    if (n%4==0)
+      printf(" ");
+    if ((x &0x80) != 0)
+      printf("1");
+    else
+      printf("0");
+
+    x = x <<1;
+  }
+}
+
+
+void print_word(uint16_t x)
+{
+  print_byte(x>>8);
+  print_byte(x);
+
+}
 
 /*:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::*/
 /*::  This function converts decimal degrees to radians             :*/
@@ -394,6 +465,307 @@ void modesInit(void) {
     Modes.stat_sbs_connections = 0;
     Modes.stat_out_of_phase = 0;
     Modes.exit = 0;
+}
+
+/* =============================== LED handling ========================== */
+
+void selectChip(int chip)
+{
+  switch (chip) {
+  case 0:
+ digitalWrite(0,0);
+ digitalWrite(1,0);
+
+    break;
+
+  case 1:
+
+ digitalWrite(0,0); 
+digitalWrite(1,1);
+
+    break;
+
+  case 2:
+ digitalWrite(0,1);
+ digitalWrite(1,0);
+    break;
+
+  case 3:
+ digitalWrite(0,1);
+ digitalWrite(1,1);
+    break;
+
+
+  }
+
+
+}
+
+void clear_matrix()
+{
+  memset(matrix,0,width*height*displays/8);
+}
+
+void print_display(int num) {
+  int x, y;
+  uint8_t n;
+
+  for (x=0; x < width; x++) {
+    n = *(matrix+x+(num*width));
+    for (y=0; y < height; y++) {
+
+      if ((n &0x80) != 0)
+    printf("=");
+      else
+    printf(" ");
+
+      n = n <<1;
+
+    }
+    printf("\n");
+  }
+
+}
+
+void write_screen(int chip, uint8_t *screen){
+
+  uint8_t i;
+  int size = width * height / 8;
+  uint8_t *output = malloc(size+2);
+  uint16_t data;
+  uint8_t write;
+
+  *output = 0b10100000;
+  *(output+1) = 0;
+
+
+  
+  bitarray_copy(screen, 0, width*height, (output+1), 2);
+  selectChip(chip);
+  wiringPiSPIDataRW(0,output,size+1);
+  
+  data = WR;
+  data <<= 7;
+  data |= 63; //last address on screen
+  data <<= 4;
+  write = (0x0f & *(screen+31));
+  data |= write;
+  data <<= 2;
+  //print_word(data);
+  //printf(" = %d  \n",i*2+1); 
+  reverse_endian(&data, sizeof(data));
+  selectChip(chip);
+   wiringPiSPIDataRW(0, &data, 2);
+
+
+  /*
+  for (i = 0; i< 32; i++)
+    {
+    
+  data = WR;
+  data <<= 7;
+  data |= i*2;
+  data <<= 4;
+  write = (0xf0 & *(screen+i));
+  write >>=4;
+
+  data |= write;
+  data <<= 2;
+  //print_word(data);
+  //printf(" = %d  \n",i*2);   
+reverse_endian(&data, sizeof(data));
+
+ selectChip(chip);
+  wiringPiSPIDataRW(0, &data, 2);
+
+  data = WR;
+  data <<= 7;
+  data |= i*2+1;
+  data <<= 4;
+  write = (0x0f & *(screen+i));
+  data |= write;
+  data <<= 2;
+  //print_word(data);
+  //printf(" = %d  \n",i*2+1); 
+  reverse_endian(&data, sizeof(data));
+  selectChip(chip);
+   wiringPiSPIDataRW(0, &data, 2);
+
+    }
+  */  
+}
+
+
+void write_matrix() {
+  int i;
+  int size = width * height / 8;
+  for(i=0;i<displays; i++) {
+    write_screen(i, matrix + (size*i));
+  }
+}
+
+
+void scroll_matrix() {
+  int i,n;
+
+  for (i=0; i < 128; i++) {
+    for (n=0; n<128; n++) {
+      if (n >= (128-i-2))
+    *(matrix+n) = 0;
+      else
+    *(matrix+n) = *(matrix + n + 1);
+    }
+    //    print_display(0);
+    write_matrix();
+    usleep(50000);
+  }
+}
+
+
+void scroll_matrix_once(int offset) {
+  int i,n;
+  int len = width * displays;
+
+
+  for (n=0; n < (len-1); n++) {
+    *(matrix+n) = *(matrix + n + 1);
+  }
+  *(matrix+n) = *(matrix_buf + offset);
+
+  write_matrix();
+  usleep(12500);
+}
+
+void draw_pixel(uint8_t x, uint8_t y, uint8_t color) {
+  if (y >= height) return;
+  if (x >= width*displays) return;
+
+
+  uint8_t mask;
+  if (color) {
+    *(matrix + x) = *(matrix + x) | (1 << y); // find the bit in the byte that needs to be turned on;
+  }else {
+   *(matrix + x) = *(matrix + x) & ~(1 << y); // find the bit in the byte that needs to be turned on;
+  }
+
+
+
+}
+
+void draw_char(char c, int offset, uint8_t *buf) {
+  int row, col,x,y;
+  
+     for (row=0; row<8; row++) {
+    uint8_t z = font_data[c][row];
+    for(col=0; col<8; col++) {
+      x = offset * font_width + col;
+      y = 8 - row;
+
+      if ((z &0x80) != 0) {
+        *(buf + x) = *(buf + x) | (1 << y); // find the bit in the byte that needs to be turned on;
+      }else {
+        *(buf + x) = *(buf + x) & ~(1 << y); // find the bit in the byte that needs to be turned on;
+      }
+
+      //draw_pixel(i*8+col,8-row,1);
+    
+      z = z <<1;
+    }
+     }
+}
+
+void write_message(char *message) {
+  int max_len = width*displays/font_width;
+  int i, pix;
+  int row;
+  int col;
+  int msg_len = strlen(message);
+  int tot_len = msg_len + max_len;
+  int delta = msg_len - max_len;
+
+  clear_matrix();
+  if (msg_len > max_len) {
+    msg_len = max_len;
+  }
+  for (i=0; i < msg_len; i++ ) {
+ 
+      char c = message[i];
+      draw_char(c, 0, *(matrix + i));
+      /*for (pix = 0; pix < font_width; pix++){
+    scroll_matrix_once(pix);
+      }*/
+      // }
+  }
+   write_matrix();
+
+}
+
+void sendcommand(int chip, uint8_t cmd) {
+  uint16_t data=0;
+  uint8_t temp;
+  int err;
+  uint8_t *access;
+
+  data = COMMAND;
+
+  data <<= 8;
+  data |= cmd;
+  data <<= 5;
+ 
+
+  reverse_endian(&data, sizeof(data));
+ 
+
+  selectChip(chip);
+   wiringPiSPIDataRW(0, &data, 2);
+ 
+}
+
+void set_brightness(int chip, uint8_t pwm) {
+  if (pwm > 15)
+{
+ pwm = 15;
+ }
+  
+  sendcommand(chip, PWM_CONTROL | pwm);
+}
+
+void ledInit(void) {
+int ce = 0;
+  int cs2 = 1;
+  int i;
+
+  unsigned char test;
+  unsigned char BITMASK = (unsigned char) 0xff;
+  unsigned char writeCommand[2];
+  srand(time(NULL));
+
+  matrix = (uint8_t *)malloc(displays * width * height / 8);
+  matrix_buf = (uint8_t *)malloc(font_width);
+
+if (wiringPiSPISetup(0, 2560000) <0)
+  printf ( "SPI Setup Failed: %s\n", strerror(errno));
+
+
+
+
+
+ if (wiringPiSetup() == -1)
+   exit(1);
+ pinMode(0, OUTPUT);
+ pinMode(1, OUTPUT);
+
+
+
+ for (i=0; i < displays; i++) {
+ sendcommand(i, SYS_EN);
+ sendcommand(i, LED_ON);
+ sendcommand(i, MASTER_MODE);
+ sendcommand(i, INT_RC);
+ sendcommand(i, COMMON_8NMOS);
+ blink(i, 0);
+ set_brightness(i,15);
+ }
 }
 
 /* =============================== RTLSDR handling ========================== */
@@ -2004,7 +2376,7 @@ void ledUpdateData(void) {
         progress);*/
 
   printf("%s\n",Modes.led_message);
-    
+  write_matrix(Modes.led_message);
 }
 
 /* Show the currently captured interactive data on screen. */
@@ -2793,6 +3165,8 @@ int main(int argc, char **argv) {
 
     /* Initialization */
     modesInit();
+    ledInit();
+
     if (Modes.net_only) {
         fprintf(stderr,"Net-only mode, no RTL device or file open.\n");
     } else if (Modes.filename == NULL) {
