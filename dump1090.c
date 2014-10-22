@@ -694,40 +694,7 @@ void draw_char(char c, int offset, uint8_t *buf) {
      }
 }
 
-void write_message(char *message) {
-  int max_len = width*displays/font_width;
-  int i, pix;
-  int row;
-  int col;
-  int msg_len = strlen(message);
-  int tot_len = msg_len + max_len;
-  int delta = msg_len - max_len;
 
-  clear_matrix();
-   for (i=0; i < displays; i++) {
- sendcommand(i, SYS_EN);
- sendcommand(i, LED_ON);
- sendcommand(i, MASTER_MODE);
- sendcommand(i, INT_RC);
- sendcommand(i, COMMON_8NMOS);
- blink(i, 0);
- set_brightness(i,15);
- }
-  if (msg_len > max_len) {
-    msg_len = max_len;
-  }
-  for (i=0; i < msg_len; i++ ) {
- 
-      char c = message[i];
-      draw_char(c, i, matrix );
-      /*for (pix = 0; pix < font_width; pix++){
-    scroll_matrix_once(pix);
-      }*/
-      // }
-  }
-   write_matrix();
-
-}
 
 void blink(int chip, int blinky) {
   if (blinky)
@@ -764,6 +731,41 @@ void set_brightness(int chip, uint8_t pwm) {
  }
   
   sendcommand(chip, PWM_CONTROL | pwm);
+}
+
+void write_message(char *message) {
+  int max_len = width*displays/font_width;
+  int i, pix;
+  int row;
+  int col;
+  int msg_len = strlen(message);
+  int tot_len = msg_len + max_len;
+  int delta = msg_len - max_len;
+
+  clear_matrix();
+   for (i=0; i < displays; i++) {
+ sendcommand(i, SYS_EN);
+ sendcommand(i, LED_ON);
+ sendcommand(i, MASTER_MODE);
+ sendcommand(i, INT_RC);
+ sendcommand(i, COMMON_8NMOS);
+ blink(i, 0);
+ set_brightness(i,15);
+ }
+  if (msg_len > max_len) {
+    msg_len = max_len;
+  }
+  for (i=0; i < msg_len; i++ ) {
+ 
+      char c = message[i];
+      draw_char(c, i, matrix );
+      /*for (pix = 0; pix < font_width; pix++){
+    scroll_matrix_once(pix);
+      }*/
+      // }
+  }
+   write_matrix();
+
 }
 
 void ledInit(void) {
