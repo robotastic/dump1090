@@ -407,15 +407,15 @@ char * bearing(double lat1, double lon1, double lat2, double lon2) {
 int tc1=mod(atan2(sin(lon2-lon1)*cos(lat2),
            cos(lat1)*sin(lat2)-sin(lat1)*cos(lat2)*cos(lon2-lon1)),
            2*pi);
-    if ((tcl >= 0) && (tcl < 23)) { return "N"}
-    if ((tcl >= 23) && (tcl < 68)) { return "NE"}
-    if ((tcl >= 68) && (tcl < 113)) { return "E"}
-    if ((tcl >= 113) && (tcl < 158)) { return "SE"}
-    if ((tcl >= 158) && (tcl < 203)) { return "S"}
-    if ((tcl >= 203) && (tcl < 248)) { return "SW"}
-    if ((tcl >= 248) && (tcl < 293)) { return "W"}
-    if ((tcl >= 293) && (tcl < 338)) { return "NW"}
-    if ((tcl >= 338) && (tcl < 361)) { return "N"}    
+    if ((tcl >= 0) && (tcl < 23)) { return "N";}
+    if ((tcl >= 23) && (tcl < 68)) { return "NE";}
+    if ((tcl >= 68) && (tcl < 113)) { return "E";}
+    if ((tcl >= 113) && (tcl < 158)) { return "SE";}
+    if ((tcl >= 158) && (tcl < 203)) { return "S";}
+    if ((tcl >= 203) && (tcl < 248)) { return "SW";}
+    if ((tcl >= 248) && (tcl < 293)) { return "W";}
+    if ((tcl >= 293) && (tcl < 338)) { return "NW";}
+    if ((tcl >= 338) && (tcl < 361)) { return "N";}    
 return "er";
 }
 /* =============================== Initialization =========================== */
