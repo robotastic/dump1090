@@ -700,6 +700,13 @@ void write_message(char *message) {
 
 }
 
+void blink(int chip, int blinky) {
+  if (blinky)
+    sendcommand(chip, BLINK_ON);
+  else
+    sendcommand(chip, BLINK_OFF);
+}
+
 void sendcommand(int chip, uint8_t cmd) {
   uint16_t data=0;
   uint8_t temp;
