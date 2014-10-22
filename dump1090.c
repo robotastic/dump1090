@@ -51,9 +51,7 @@
 #include <termios.h> /* POSIX terminal control definitions */
 #include <time.h>
 
-#include "serprt.h"
-#include "helper.h"
-#include "common.h"
+
 
 
 
@@ -194,6 +192,7 @@ struct {
     struct aircraft *led_aircraft; /* The aircraft currently being display */
     int led_field;
     long long led_last_update;
+
     char led_message[LED_MESSAGE_LEN];
 
     /* Statistics */
@@ -1891,15 +1890,9 @@ struct aircraft *interactiveReceiveData(struct modesMessage *mm) {
 void ledNextAircraft(void) {
     struct aircraft *a = NULL;
     if (Modes.led_aircraft != NULL) {
-        a = interactiveFindAircraft(Modes.led_aircraft->addr);
-        if (a != NULL) {
-            a = a->next;
-        }
+            a = Modes.led_aircraft->next;
     }
     Modes.led_field = 0;
-    if (Modes.led_aircraft) {
-        free(Modes.led_aircraft);
-    }
     Modes.led_aircraft = NULL;
 
     if (a == NULL ){
@@ -1912,8 +1905,13 @@ void ledNextAircraft(void) {
             a = Modes.aircrafts;
         }
     }
-    Modes.led_aircraft = interactiveCopyAircraft(a);
-    return;
+    while (a != NULL) {
+        if (strlen(a->flight)>0) {
+          Modes.led_aircraft = a;
+          break;  
+        }
+        a = a->next;
+    }
 }
 
 void ledRotateDisplay(void) {
@@ -1979,7 +1977,7 @@ void ledUpdateData(void) {
                     sprintf(field_str, "%-3d", Modes.led_aircraft->track);
                     strcat(Modes.led_message, field_str);
                     strcat(Modes.led_message, " Dst: ");
-                    sprintf(field_str, "%-4d", distance(Modes.led_aircraft->lat, Modes.led_aircraft->lon, 38.9232353, -77.04361829999999, 'M'));
+                    sprintf(field_str, "%3.1f", distance(Modes.led_aircraft->lat, Modes.led_aircraft->lon, 38.9232353, -77.04361829999999, 'M'));
                     strcat(Modes.led_message, field_str);
                 } else {
                     Modes.led_field++;
@@ -1999,11 +1997,11 @@ void ledUpdateData(void) {
     progress[time(NULL)%3] = '.';
     progress[3] = '\0';
 
-    printf("\x1b[H\x1b[2J");    /* Clear the screen */
-    printf(
+    //printf("\x1b[H\x1b[2J");    /* Clear the screen */
+  /*  printf(
 "Hex    Flight   Altitude  Speed   Lat       Lon       Track  Messages Seen %s\n"
 "--------------------------------------------------------------------------------\n",
-        progress);
+        progress);*/
 
   printf("%s\n",Modes.led_message);
     
@@ -2020,11 +2018,11 @@ void interactiveShowData(void) {
     progress[time(NULL)%3] = '.';
     progress[3] = '\0';
 
-    //printf("\x1b[H\x1b[2J");    /* Clear the screen */
-    /*printf(
+    printf("\x1b[H\x1b[2J");    /* Clear the screen */
+    printf(
 "Hex    Flight   Altitude  Speed   Lat       Lon       Track  Messages Seen %s\n"
 "--------------------------------------------------------------------------------\n",
-        progress);*/
+        progress);
 
     while(a && count < Modes.interactive_rows) {
         int altitude = a->altitude, speed = a->speed;
@@ -2035,10 +2033,10 @@ void interactiveShowData(void) {
             speed *= 1.852;
         }
 
-        /*printf("%-6s %-8s %-9d %-7d %-7.03f   %-7.03f   %-3d   %-9ld %d sec\n",
+        printf("%-6s %-8s %-9d %-7d %-7.03f   %-7.03f   %-3d   %-9ld %d sec\n",
             a->hexaddr, a->flight, altitude, speed,
             a->lat, a->lon, a->track, a->messages,
-            (int)(now - a->seen));*/
+            (int)(now - a->seen));
         a = a->next;
         count++;
     }
@@ -2053,6 +2051,11 @@ void interactiveRemoveStaleAircrafts(void) {
 
     while(a) {
         if ((now - a->seen) > Modes.interactive_ttl) {
+            if (a == Modes.led_aircraft) {
+                // if the currently dispalyed aircraft is old, reset LED aircraft
+                Modes.led_aircraft = NULL;
+                Modes.led_field = 0;
+            }
             struct aircraft *next = a->next;
             /* Remove the element from the linked list, with care
              * if we are removing the first element. */
