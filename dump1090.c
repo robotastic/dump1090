@@ -404,7 +404,7 @@ double distance(double lat1, double lon1, double lat2, double lon2, char unit) {
   return (dist);
 }
 char * bearing(double lat1, double lon1, double lat2, double lon2) {
-int tc1=mod(atan2(sin(lon2-lon1)*cos(lat2),
+int tcl=mod(atan2(sin(lon2-lon1)*cos(lat2),
            cos(lat1)*sin(lat2)-sin(lat1)*cos(lat2)*cos(lon2-lon1)),
            2*pi);
     if ((tcl >= 0) && (tcl < 23)) { return "N";}
