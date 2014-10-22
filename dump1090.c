@@ -704,6 +704,15 @@ void write_message(char *message) {
   int delta = msg_len - max_len;
 
   clear_matrix();
+   for (i=0; i < displays; i++) {
+ sendcommand(i, SYS_EN);
+ sendcommand(i, LED_ON);
+ sendcommand(i, MASTER_MODE);
+ sendcommand(i, INT_RC);
+ sendcommand(i, COMMON_8NMOS);
+ blink(i, 0);
+ set_brightness(i,15);
+ }
   if (msg_len > max_len) {
     msg_len = max_len;
   }
