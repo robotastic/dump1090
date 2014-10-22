@@ -2383,7 +2383,7 @@ void ledUpdateData(void) {
         progress);*/
 
   printf("%s\n",Modes.led_message);
-  write_matrix(Modes.led_message);
+  write_message(Modes.led_message);
 }
 
 /* Show the currently captured interactive data on screen. */
