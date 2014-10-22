@@ -403,9 +403,21 @@ double distance(double lat1, double lon1, double lat2, double lon2, char unit) {
   }
   return (dist);
 }
-
-
-
+char * bearing(double lat1, double lon1, double lat2, double lon2) {
+int tc1=mod(atan2(sin(lon2-lon1)*cos(lat2),
+           cos(lat1)*sin(lat2)-sin(lat1)*cos(lat2)*cos(lon2-lon1)),
+           2*pi);
+    if ((tcl >= 0) && (tcl < 23)) { return "N"}
+    if ((tcl >= 23) && (tcl < 68)) { return "NE"}
+    if ((tcl >= 68) && (tcl < 113)) { return "E"}
+    if ((tcl >= 113) && (tcl < 158)) { return "SE"}
+    if ((tcl >= 158) && (tcl < 203)) { return "S"}
+    if ((tcl >= 203) && (tcl < 248)) { return "SW"}
+    if ((tcl >= 248) && (tcl < 293)) { return "W"}
+    if ((tcl >= 293) && (tcl < 338)) { return "NW"}
+    if ((tcl >= 338) && (tcl < 361)) { return "N"}    
+return "er";
+}
 /* =============================== Initialization =========================== */
 
 void modesInitConfig(void) {
@@ -2388,7 +2400,9 @@ void ledUpdateData(void) {
                     sprintf(field_str, "%-3d", Modes.led_aircraft->track);
                     strcat(Modes.led_message, field_str);
                     strcat(Modes.led_message, " Dst: ");*/
-                    sprintf(field_str, " %3.1f Dst", distance(Modes.led_aircraft->lat, Modes.led_aircraft->lon, 38.9232353, -77.04361829999999, 'M'));
+                    sprintf(field_str, " %3.1f ", distance(Modes.led_aircraft->lat, Modes.led_aircraft->lon, 38.9232353, -77.04361829999999, 'M'));
+                    strcat(Modes.led_message, field_str);
+                    sprintf(field_str, " %s", bearing(38.9232353, -77.04361829999999, Modes.led_aircraft->lat, Modes.led_aircraft->lon));
                     strcat(Modes.led_message, field_str);
                 } else {
                     Modes.led_field++;
