@@ -690,7 +690,7 @@ void write_message(char *message) {
   for (i=0; i < msg_len; i++ ) {
  
       char c = message[i];
-      draw_char(c, 0, *(matrix + i));
+      draw_char(c, i, matrix );
       /*for (pix = 0; pix < font_width; pix++){
     scroll_matrix_once(pix);
       }*/
