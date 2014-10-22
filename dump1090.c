@@ -2414,7 +2414,7 @@ void ledUpdateData(void) {
 "--------------------------------------------------------------------------------\n",
         progress);*/
 
-  printf("%s\n",Modes.led_message);
+  //printf("%s\n",Modes.led_message);
   write_message(Modes.led_message);
 }
 
@@ -3097,7 +3097,7 @@ void backgroundTasks(void) {
         MODES_INTERACTIVE_REFRESH_TIME)
     {
         interactiveRemoveStaleAircrafts();
-        interactiveShowData();
+        //interactiveShowData();
         ledUpdateData();
         Modes.interactive_last_update = mstime();
     }
