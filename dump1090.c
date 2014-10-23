@@ -404,6 +404,10 @@ double distance(double lat1, double lon1, double lat2, double lon2, char unit) {
   return (dist);
 }
 char * bearing(double lat1, double lon1, double lat2, double lon2) {
+    lat1 = deg2rad(lat1);
+    lat2 = deg2rad(lat2);
+    lon1 = deg2rad(lon1);
+    lon2 = deg2rad(lon2);
 int tcl=fmod(atan2(sin(lon2-lon1)*cos(lat2),
            cos(lat1)*sin(lat2)-sin(lat1)*cos(lat2)*cos(lon2-lon1)),
            2*pi);
