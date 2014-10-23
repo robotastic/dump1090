@@ -460,6 +460,8 @@ void modesInitConfig(void) {
     Modes.onlyaddr = 0;
     Modes.debug = 0;
     Modes.interactive = 0;
+    Modes.lat = 38.9232353;
+    Modes.long = -77.04361829999999;
     Modes.interactive_rows = MODES_INTERACTIVE_ROWS;
     Modes.interactive_ttl = MODES_INTERACTIVE_TTL;
     Modes.aggressive = 0;
@@ -2363,7 +2365,7 @@ void ledNextAircraft(void) {
         }
         a = a->next;
         /* wrap around if you started in the middle */
-        if ((a==null) && mid_start) {
+        if ((a==NULL) && mid_start) {
             mid_start = 0;
             a = Modes.aircrafts;
         }
