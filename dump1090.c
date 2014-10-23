@@ -423,7 +423,7 @@ char * bearing(double lat1, double lon1, double lat2, double lon2) {
           }
      }
      //return the angle, normalized
-     double tcl = (rad2deg(atan2(delta_lon, delta_phi)) + 360) % 360;
+     double tcl = fmod((rad2deg(atan2(delta_lon, delta_phi)) + 360),  360);
 
   /*  lat1 = deg2rad(lat1);
     lat2 = deg2rad(lat2);
