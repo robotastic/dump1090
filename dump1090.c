@@ -461,7 +461,7 @@ void modesInitConfig(void) {
     Modes.debug = 0;
     Modes.interactive = 0;
     Modes.lat = 38.9232353;
-    Modes.long = -77.04361829999999;
+    Modes.lon = -77.04361829999999;
     Modes.interactive_rows = MODES_INTERACTIVE_ROWS;
     Modes.interactive_ttl = MODES_INTERACTIVE_TTL;
     Modes.aggressive = 0;
