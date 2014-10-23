@@ -2338,8 +2338,10 @@ struct aircraft *interactiveReceiveData(struct modesMessage *mm) {
 
 void ledNextAircraft(void) {
     struct aircraft *a = NULL;
+    int mid_start=0;
     if (Modes.led_aircraft != NULL) {
             a = Modes.led_aircraft->next;
+            mid_start=1;
     }
     Modes.led_field = 0;
     Modes.led_aircraft = NULL;
@@ -2360,6 +2362,11 @@ void ledNextAircraft(void) {
           break;  
         }
         a = a->next;
+        /* wrap around if you started in the middle */
+        if ((a==null) && mid_start) {
+            mid_start = 0;
+            a = Modes.aircrafts;
+        }
     }
 }
 
@@ -2426,9 +2433,9 @@ void ledUpdateData(void) {
                     sprintf(field_str, "%-3d", Modes.led_aircraft->track);
                     strcat(Modes.led_message, field_str);
                     strcat(Modes.led_message, " Dst: ");*/
-                    sprintf(field_str, " %3.1f ", distance(Modes.led_aircraft->lat, Modes.led_aircraft->lon, 38.9232353, -77.04361829999999, 'M'));
+                    sprintf(field_str, " %3.1f ", distance(Modes.led_aircraft->lat, Modes.led_aircraft->lon, Modes.lat, Modes.lon, 'M'));
                     strcat(Modes.led_message, field_str);
-                    sprintf(field_str, "%s", bearing(38.9232353, -77.04361829999999, Modes.led_aircraft->lat, Modes.led_aircraft->lon));
+                    sprintf(field_str, "%s", bearing(Modes.lat, Modes.lon , Modes.led_aircraft->lat, Modes.led_aircraft->lon));
                     strcat(Modes.led_message, field_str);
                 } else {
                     Modes.led_field++;
