@@ -406,14 +406,33 @@ double distance(double lat1, double lon1, double lat2, double lon2, char unit) {
   return (dist);
 }
 char * bearing(double lat1, double lon1, double lat2, double lon2) {
-    lat1 = deg2rad(lat1);
+
+
+     double delta_lon = deg2rad(lon2) - deg2rad(lon1);
+ 
+     //difference in the phi of latitudinal coordinates
+     double delta_phi = log(tan(deg2rad(lat2) / 2 + pi / 4) / tan(deg2rad(lat1) / 2 + pi / 4));
+ 
+     //we need to recalculate $dLon if it is greater than pi
+     if(abs(delta_lon) > pi {
+          if(delta_lon > 0) {
+               delta_lon = (2 * pi - delta_lon) * -1;
+          }
+          else {
+               delta_lon = 2 * pi + delta_lon;
+          }
+     }
+     //return the angle, normalized
+     double tcl = (rad2deg(atan2(delta_lon, delta_phi)) + 360) % 360;
+
+  /*  lat1 = deg2rad(lat1);
     lat2 = deg2rad(lat2);
     lon1 = deg2rad(lon1);
     lon2 = deg2rad(lon2);
 int tcl=fmod(atan2(sin(lon2-lon1)*cos(lat2),
            cos(lat1)*sin(lat2)-sin(lat1)*cos(lat2)*cos(lon2-lon1)),
-           2*pi);
-    printf("reg: %d rad: %d\n", tcl,rad2deg(tcl));
+           2*pi);*/
+    printf("reg: %f rad: %f\n", tcl,rad2deg(tcl));
     if ((tcl >= 0) && (tcl < 23)) { return "N";}
     if ((tcl >= 23) && (tcl < 68)) { return "NE";}
     if ((tcl >= 68) && (tcl < 113)) { return "E";}
