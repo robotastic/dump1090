@@ -407,6 +407,7 @@ char * bearing(double lat1, double lon1, double lat2, double lon2) {
 int tcl=fmod(atan2(sin(lon2-lon1)*cos(lat2),
            cos(lat1)*sin(lat2)-sin(lat1)*cos(lat2)*cos(lon2-lon1)),
            2*pi);
+    printf("%d\n", tcl);
     if ((tcl >= 0) && (tcl < 23)) { return "N";}
     if ((tcl >= 23) && (tcl < 68)) { return "NE";}
     if ((tcl >= 68) && (tcl < 113)) { return "E";}
@@ -2402,7 +2403,7 @@ void ledUpdateData(void) {
                     strcat(Modes.led_message, " Dst: ");*/
                     sprintf(field_str, " %3.1f ", distance(Modes.led_aircraft->lat, Modes.led_aircraft->lon, 38.9232353, -77.04361829999999, 'M'));
                     strcat(Modes.led_message, field_str);
-                    sprintf(field_str, " %s", bearing(38.9232353, -77.04361829999999, Modes.led_aircraft->lat, Modes.led_aircraft->lon));
+                    sprintf(field_str, "%s", bearing(38.9232353, -77.04361829999999, Modes.led_aircraft->lat, Modes.led_aircraft->lon));
                     strcat(Modes.led_message, field_str);
                 } else {
                     Modes.led_field++;
