@@ -213,6 +213,8 @@ struct {
     int metric;                     /* Use metric units. */
     int aggressive;                 /* Aggressive detection algorithm. */
     int led;                        /* LED Display Board */
+    double lat;
+    double lon;
 
     /* Interactive mode */
     struct aircraft *aircrafts;
@@ -411,7 +413,7 @@ char * bearing(double lat1, double lon1, double lat2, double lon2) {
 int tcl=fmod(atan2(sin(lon2-lon1)*cos(lat2),
            cos(lat1)*sin(lat2)-sin(lat1)*cos(lat2)*cos(lon2-lon1)),
            2*pi);
-    printf("%d\n", tcl);
+    printf("reg: %d rad: %d\n", tcl,rad2deg(tcl));
     if ((tcl >= 0) && (tcl < 23)) { return "N";}
     if ((tcl >= 23) && (tcl < 68)) { return "NE";}
     if ((tcl >= 68) && (tcl < 113)) { return "E";}
@@ -3143,6 +3145,10 @@ int main(int argc, char **argv) {
             Modes.dev_index = atoi(argv[++j]);
         } else if (!strcmp(argv[j],"--gain") && more) {
             Modes.gain = atof(argv[++j])*10; /* Gain is in tens of DBs */
+        } else if (!strcmp(argv[j],"--lat") && more) {
+            Modes.lat = atof(argv[++j]);
+        } else if (!strcmp(argv[j],"--lon") && more) {
+            Modes.lon = atof(argv[++j]);
         } else if (!strcmp(argv[j],"--enable-agc")) {
             Modes.enable_agc++;
         } else if (!strcmp(argv[j],"--freq") && more) {
