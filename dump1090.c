@@ -414,7 +414,7 @@ char * bearing(double lat1, double lon1, double lat2, double lon2) {
      double delta_phi = log(tan(deg2rad(lat2) / 2 + pi / 4) / tan(deg2rad(lat1) / 2 + pi / 4));
  
      //we need to recalculate $dLon if it is greater than pi
-     if(abs(delta_lon) > pi {
+     if(abs(delta_lon) > pi) {
           if(delta_lon > 0) {
                delta_lon = (2 * pi - delta_lon) * -1;
           }
